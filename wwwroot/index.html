@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Mi API</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            max-width: 600px;
+            margin: 40px auto;
+            padding: 0 20px;
+        }
+
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            margin-top: 20px;
+        }
+
+        th,
+        td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+
+        th {
+            background: #f4f4f4;
+        }
+
+        button {
+            padding: 10px 20px;
+            margin: 10px 0;
+            cursor: pointer;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Mi API</h1>
+    <button onclick="cargar()">Cargar datos</button>
+    <div id="resultado"></div>
+
+    <script>
+        async function cargar() {
+            const res = await fetch('http://localhost:5015/weatherforecast');
+            const data = await res.json();
+
+            let html = '<table><tr><th>Fecha</th><th>Temp (°C)</th><th>Descripción</th></tr>';
+            data.forEach(item => {
+                html += `<tr><td>${item.date}</td><td>${item.temperatureC}</td><td>${item.summary}</td></tr>`;
+            });
+            html += '</table>';
+
+            document.getElementById('resultado').innerHTML = html;
+        }
+    </script>
+</body>
+
+</html>
