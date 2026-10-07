@@ -1,14 +1,23 @@
-# Fase de construcción / compilación (usando SDK 10.0)
-FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
-WORKDIR /src
-COPY ["*.csproj", "./"]
-RUN dotnet restore
-COPY . .
-RUN dotnet publish -c Release -o /app/publish
+﻿FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 
-# Fase de ejecución final (usando ASP.NET 10.0)
+WORKDIR /src
+
+COPY ["API.csproj", "./"]
+
+RUN dotnet restore "API.csproj"
+
+COPY . .
+
+RUN dotnet publish "API.csproj" -c Release -o /app/publish /p:UseAppHost=false
+
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS final
+
 WORKDIR /app
-EXPOSE 8080
+
 COPY --from=build /app/publish .
+
+ENV ASPNETCORE_URLS=http://0.0.0.0:10000
+
+EXPOSE 10000
+
 ENTRYPOINT ["dotnet", "API.dll"]
