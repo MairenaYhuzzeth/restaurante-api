@@ -1,6 +1,5 @@
 var builder = WebApplication.CreateBuilder(args);
 
-// 1. Agregar política de CORS para permitir peticiones desde cualquier origen (Flutter Web)
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAll", policy =>
@@ -16,7 +15,6 @@ builder.Services.AddOpenApi();
 
 var app = builder.Build();
 
-// 2. Activar CORS (¡Importante que vaya antes de app.Run() y de tus endpoints!)
 app.UseCors("AllowAll");
 
 if (app.Environment.IsDevelopment())
@@ -26,4 +24,12 @@ if (app.Environment.IsDevelopment())
 
 app.UseStaticFiles();
 
-// ... (el resto de tu código de platillos sigue igual)
+app.MapGet("/", () =>
+{
+    return Results.Ok(new
+    {
+        mensaje = "API del restaurante funcionando correctamente"
+    });
+});
+
+app.Run();
