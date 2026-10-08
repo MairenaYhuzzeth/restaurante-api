@@ -1,6 +1,23 @@
+using Npgsql;
+
 var builder = WebApplication.CreateBuilder(args);
 
-// CORS para permitir peticiones desde Flutter
+// ============================================================
+// CONEXIÓN A POSTGRESQL / NEON
+// ============================================================
+
+var connectionString = builder.Configuration["NEON_CONNECTION_STRING"];
+
+if (string.IsNullOrWhiteSpace(connectionString))
+{
+    Console.WriteLine("ADVERTENCIA: NEON_CONNECTION_STRING no está configurada.");
+}
+
+
+// ============================================================
+// CORS
+// ============================================================
+
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAll", policy =>
@@ -11,10 +28,20 @@ builder.Services.AddCors(options =>
     });
 });
 
+
+// ============================================================
+// SERVICIOS DE LA API
+// ============================================================
+
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddOpenApi();
 
 var app = builder.Build();
+
+
+// ============================================================
+// CONFIGURACIÓN
+// ============================================================
 
 app.UseCors("AllowAll");
 
@@ -25,16 +52,11 @@ if (app.Environment.IsDevelopment())
 
 app.UseStaticFiles();
 
-// Página principal
-app.MapGet("/", () =>
-{
-    return Results.Ok(new
-    {
-        mensaje = "API del restaurante funcionando correctamente"
-    });
-});
 
-// Lista de productos
+// ============================================================
+// PRODUCTOS DE RESPALDO
+// ============================================================
+
 var products = new[]
 {
     new
@@ -48,6 +70,7 @@ var products = new[]
         available = true,
         popular = true
     },
+
     new
     {
         id = "p2",
@@ -59,6 +82,7 @@ var products = new[]
         available = true,
         popular = true
     },
+
     new
     {
         id = "p3",
@@ -70,6 +94,7 @@ var products = new[]
         available = true,
         popular = true
     },
+
     new
     {
         id = "p4",
@@ -81,6 +106,7 @@ var products = new[]
         available = true,
         popular = false
     },
+
     new
     {
         id = "p5",
@@ -92,6 +118,7 @@ var products = new[]
         available = true,
         popular = true
     },
+
     new
     {
         id = "p6",
@@ -103,6 +130,7 @@ var products = new[]
         available = true,
         popular = false
     },
+
     new
     {
         id = "p7",
@@ -114,6 +142,7 @@ var products = new[]
         available = true,
         popular = false
     },
+
     new
     {
         id = "p8",
@@ -125,6 +154,7 @@ var products = new[]
         available = true,
         popular = false
     },
+
     new
     {
         id = "p9",
@@ -138,10 +168,199 @@ var products = new[]
     }
 };
 
-// GET /products
-app.MapGet("/products", () =>
+
+// ============================================================
+// PÁGINA PRINCIPAL
+// ============================================================
+
+app.MapGet("/", () =>
 {
-    return Results.Ok(products);
+    return Results.Ok(new
+    {
+        mensaje = "API del restaurante funcionando correctamente"
+    });
 });
+
+
+// ============================================================
+// PROBAR CONEXIÓN CON POSTGRESQL
+// ============================================================
+
+app.MapGet("/test-db", async () =>
+{
+    try
+    {
+        if (string.IsNullOrWhiteSpace(connectionString))
+        {
+            return Results.Problem(
+                "La variable NEON_CONNECTION_STRING no está configurada."
+            );
+        }
+
+        await using var connection =
+            new NpgsqlConnection(connectionString);
+
+        await connection.OpenAsync();
+
+        return Results.Ok(new
+        {
+            mensaje = "Conexión con PostgreSQL funcionando correctamente"
+        });
+    }
+    catch (Exception ex)
+    {
+        return Results.Problem(ex.Message);
+    }
+});
+
+
+// ============================================================
+// OBTENER PRODUCTOS DESDE POSTGRESQL
+// ============================================================
+
+app.MapGet("/products", async () =>
+{
+    try
+    {
+        if (string.IsNullOrWhiteSpace(connectionString))
+        {
+            return Results.Ok(products);
+        }
+
+        var result = new List<object>();
+
+        await using var connection =
+            new NpgsqlConnection(connectionString);
+
+        await connection.OpenAsync();
+
+        const string sql = """
+            SELECT
+                p.idproducto,
+                p.nombre,
+                p.descripcion,
+                p.precio,
+                p.idcategoria,
+                p.imagen,
+                p.disponible,
+                p.popular
+            FROM productos p
+            WHERE p.disponible = TRUE
+            ORDER BY p.idproducto;
+            """;
+
+        await using var command =
+            new NpgsqlCommand(sql, connection);
+
+        await using var reader =
+            await command.ExecuteReaderAsync();
+
+        while (await reader.ReadAsync())
+        {
+            result.Add(new
+            {
+                id = $"p{reader.GetInt32(0)}",
+                name = reader.GetString(1),
+
+                description =
+                    reader.IsDBNull(2)
+                        ? ""
+                        : reader.GetString(2),
+
+                price = reader.GetDecimal(3),
+
+                categoryId =
+                    $"cat{reader.GetInt32(4)}",
+
+                image =
+                    reader.IsDBNull(5)
+                        ? ""
+                        : reader.GetString(5),
+
+                available = reader.GetBoolean(6),
+                popular = reader.GetBoolean(7)
+            });
+        }
+
+        return Results.Ok(result);
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine(
+            $"Error al consultar PostgreSQL: {ex.Message}"
+        );
+
+        return Results.Ok(products);
+    }
+});
+
+
+// ============================================================
+// OBTENER CATEGORÍAS DESDE POSTGRESQL
+// ============================================================
+
+app.MapGet("/categories", async () =>
+{
+    try
+    {
+        if (string.IsNullOrWhiteSpace(connectionString))
+        {
+            return Results.Problem(
+                "La variable NEON_CONNECTION_STRING no está configurada."
+            );
+        }
+
+        var result = new List<object>();
+
+        await using var connection =
+            new NpgsqlConnection(connectionString);
+
+        await connection.OpenAsync();
+
+        const string sql = """
+            SELECT
+                idcategoria,
+                nombre,
+                descripcion,
+                activa
+            FROM categorias
+            ORDER BY idcategoria;
+            """;
+
+        await using var command =
+            new NpgsqlCommand(sql, connection);
+
+        await using var reader =
+            await command.ExecuteReaderAsync();
+
+        while (await reader.ReadAsync())
+        {
+            result.Add(new
+            {
+                id = $"cat{reader.GetInt32(0)}",
+
+                name = reader.GetString(1),
+
+                description =
+                    reader.IsDBNull(2)
+                        ? ""
+                        : reader.GetString(2),
+
+                active = reader.GetBoolean(3)
+            });
+        }
+
+        return Results.Ok(result);
+    }
+    catch (Exception ex)
+    {
+        return Results.Problem(ex.Message);
+    }
+});
+
+
+// ============================================================
+// INICIAR API
+// ============================================================
 
 app.Run();
