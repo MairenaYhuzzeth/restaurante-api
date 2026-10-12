@@ -704,6 +704,21 @@ class ClientHomePage extends StatelessWidget {
     return AnimatedBuilder(
       animation: state,
       builder: (context, _) {
+        final selectedCategory = state.categories.where(
+          (category) => category.id == state.selectedCategory,
+        );
+
+        final categoryName = selectedCategory.isEmpty
+            ? 'esta categoría'
+            : selectedCategory.first.name;
+
+        final showingPopular =
+            state.selectedCategory == 'all' && state.search.trim().isEmpty;
+
+        final displayedProducts = showingPopular
+            ? state.popularProducts
+            : state.filteredProducts;
+
         return SingleChildScrollView(
           padding: const EdgeInsets.all(18),
           child: Column(
@@ -716,7 +731,7 @@ class ClientHomePage extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 6),
-              const Text('¿Qué te gustar铆a comer hoy?'),
+              const Text('¿Qué te gustaría comer hoy?'),
               const SizedBox(height: 20),
               TextField(
                 onChanged: state.setSearch,
@@ -754,12 +769,30 @@ class ClientHomePage extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 20),
-              const Text(
-                'Productos populares',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              Text(
+                showingPopular
+                    ? 'Productos populares'
+                    : state.selectedCategory == 'all'
+                    ? 'Resultados de búsqueda'
+                    : 'Productos de $categoryName',
+                style: const TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
               const SizedBox(height: 12),
-              ProductGrid(products: state.popularProducts),
+              if (displayedProducts.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 28),
+                  child: Center(
+                    child: Text(
+                      'No se encontraron productos disponibles.',
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                )
+              else
+                ProductGrid(products: displayedProducts),
             ],
           ),
         );
